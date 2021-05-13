@@ -407,7 +407,14 @@ class MultiCarRacing(gym.Env, EzPickle):
 
         return self.step(None)[0]
 
-    def step(self, action):
+    def step(self, action, action_repeat=4):
+        for _ in range(action_repeat):
+            state, step_reward, done, info = self.single_step(action)
+            if done:
+                break
+        return state, step_reward, done, info
+
+    def single_step(self, action):
         """ Run environment for one timestep. 
         
         Parameters:
