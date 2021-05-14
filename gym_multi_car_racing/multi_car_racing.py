@@ -130,7 +130,7 @@ class MultiCarRacing(gym.Env, EzPickle):
 
     def __init__(self, num_agents=2, verbose=1, direction='CCW',
                  use_random_direction=True, backwards_flag=True, h_ratio=0.25,
-                 use_ego_color=False):
+                 use_ego_color=False, grass_penalty=1.0):
         EzPickle.__init__(self)
         self.seed()
         self.num_agents = num_agents
@@ -158,6 +158,7 @@ class MultiCarRacing(gym.Env, EzPickle):
         self.backwards_flag = backwards_flag  # Boolean for rendering backwards driving flag
         self.h_ratio = h_ratio  # Configures vertical location of car within rendered window
         self.use_ego_color = use_ego_color  # Whether to make ego car always render as the same color
+        self.grass_penalty = grass_penalty # Penalty to apply when on the grass
 
         self.action_lb = np.tile(np.array([-1,+0,+0]), 1)  # self.num_agents)
         self.action_ub = np.tile(np.array([+1,+1,+1]), 1)  # self.num_agents)
@@ -449,7 +450,7 @@ class MultiCarRacing(gym.Env, EzPickle):
             # NOTE(IG): Probably not relevant. Seems not to be used anywhere. Commented it out.
             # self.cars[0].fuel_spent = 0.0
 
-            step_reward = self.reward - self.prev_reward
+            # step_reward = self.reward - self.prev_reward
 
             # Add penalty for driving backward
             for car_id, car in enumerate(self.cars):  # Enumerate through cars
@@ -479,6 +480,8 @@ class MultiCarRacing(gym.Env, EzPickle):
                 on_grass = not np.array([car_pos_as_point.within(polygon)
                                    for polygon in self.road_poly_shapely]).any()
                 self.driving_on_grass[car_id] = on_grass
+                if on_grass:
+                    self.reward[car_id] -= self.grass_penalty
 
                 # Find track angle of closest point
                 desired_angle = self.track[track_index][1]
@@ -499,11 +502,10 @@ class MultiCarRacing(gym.Env, EzPickle):
                 # backwards flag is set even if it is driving on grass.
                 if angle_diff > BACKWARD_THRESHOLD:
                     self.driving_backward[car_id] = True
-                    step_reward[car_id] -= K_BACKWARD * angle_diff
+                    self.reward[car_id] -= K_BACKWARD * angle_diff
                 else:
                     self.driving_backward[car_id] = False
 
-            self.prev_reward = self.reward.copy()
             if len(self.track) in self.tile_visited_count:
                 done = True
 
@@ -513,7 +515,10 @@ class MultiCarRacing(gym.Env, EzPickle):
                 x, y = car.hull.position
                 if abs(x) > PLAYFIELD or abs(y) > PLAYFIELD:
                     done = True
-                    step_reward[car_id] = -100
+                    self.reward[car_id] -= 100
+
+            step_reward = self.reward - self.prev_reward
+            self.prev_reward = self.reward.copy()
 
         return self.state, step_reward, done, {}
 
