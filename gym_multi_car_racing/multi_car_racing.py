@@ -130,7 +130,7 @@ class MultiCarRacing(gym.Env, EzPickle):
 
     def __init__(self, num_agents=2, verbose=1, direction='CCW',
                  use_random_direction=True, backwards_flag=True, h_ratio=0.25,
-                 use_ego_color=False, grass_penalty=1.0, max_steps=1000):
+                 use_ego_color=False, grass_penalty=1.0, grass_terminal=False, max_steps=1000):
         EzPickle.__init__(self)
         self.seed()
         self.num_agents = num_agents
@@ -159,6 +159,7 @@ class MultiCarRacing(gym.Env, EzPickle):
         self.h_ratio = h_ratio  # Configures vertical location of car within rendered window
         self.use_ego_color = use_ego_color  # Whether to make ego car always render as the same color
         self.grass_penalty = grass_penalty # Penalty to apply when on the grass
+        self.grass_terminal = grass_terminal # Whether driving onto the grass ends the episode
 
         self.action_lb = np.tile(np.array([-1,+0,+0]), 1)  # self.num_agents)
         self.action_ub = np.tile(np.array([+1,+1,+1]), 1)  # self.num_agents)
@@ -443,6 +444,8 @@ class MultiCarRacing(gym.Env, EzPickle):
 
         self.state = self.render("state_pixels")
 
+        info = {}
+
         step_reward = np.zeros(self.num_agents)
         done = False
         if action is not None: # First step without action, called from reset()
@@ -484,12 +487,13 @@ class MultiCarRacing(gym.Env, EzPickle):
                                    for polygon in self.road_poly_shapely]).any()
                 self.driving_on_grass[car_id] = on_grass
                 if on_grass:
-                    # crash condition
-                    self.reward[car_id] -= 100
-                    done = True
+                    if self.grass_terminal:
+                        # crash condition
+                        info['terminal_cause'] = 'Drove onto grass'
+                        done = True
 
                     # grass penalty
-                    # self.reward[car_id] -= self.grass_penalty
+                    self.reward[car_id] -= self.grass_penalty
 
                 # Find track angle of closest point
                 desired_angle = self.track[track_index][1]
@@ -516,6 +520,7 @@ class MultiCarRacing(gym.Env, EzPickle):
 
             self.total_steps += 1
             if len(self.track) in self.tile_visited_count or self.total_steps >= self.max_steps:
+                info['terminal_cause'] = 'Completed' if len(self.track) in self.tile_visited_count else 'Out of time'
                 done = True
                 
             if done:
@@ -532,7 +537,7 @@ class MultiCarRacing(gym.Env, EzPickle):
             step_reward = self.reward - self.prev_reward
             self.prev_reward = self.reward.copy()
 
-        return self.state, step_reward, done, {}
+        return self.state, step_reward, done, info
 
     def render(self, mode='human'):
         assert mode in ['human', 'state_pixels', 'rgb_array']
