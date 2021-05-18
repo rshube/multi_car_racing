@@ -349,6 +349,7 @@ class MultiCarRacing(gym.Env, EzPickle):
         self.tile_visited_count = [0]*self.num_agents
         self.t = 0.0
         self.road_poly = []
+        self.total_steps = 0
 
         # Reset driving backwards/on-grass states and track direction
         self.driving_backward = np.zeros(self.num_agents, dtype=bool)
@@ -457,6 +458,7 @@ class MultiCarRacing(gym.Env, EzPickle):
             # self.cars[0].fuel_spent = 0.0
 
             # step_reward = self.reward - self.prev_reward
+            self.total_steps += 1
 
             # Add penalty for driving backward
             for car_id, car in enumerate(self.cars):  # Enumerate through cars
@@ -489,7 +491,8 @@ class MultiCarRacing(gym.Env, EzPickle):
                 if on_grass:
                     if self.grass_terminal:
                         # crash condition
-                        info['terminal_cause'] = 'Drove onto grass'
+                        info['Terminal Cause'] = 'Drove onto grass'
+                        info['Episode Steps'] = self.total_steps
                         done = True
 
                     # grass penalty
@@ -518,9 +521,9 @@ class MultiCarRacing(gym.Env, EzPickle):
                 else:
                     self.driving_backward[car_id] = False
 
-            self.total_steps += 1
             if len(self.track) in self.tile_visited_count or self.total_steps >= self.max_steps:
-                info['terminal_cause'] = 'Completed' if len(self.track) in self.tile_visited_count else 'Out of time'
+                info['Terminal Cause'] = 'Completed' if len(self.track) in self.tile_visited_count else 'Out of time'
+                info['Episode Steps'] = self.total_steps
                 done = True
                 
             if done:
