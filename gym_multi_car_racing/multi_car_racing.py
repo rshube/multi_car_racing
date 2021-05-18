@@ -130,7 +130,7 @@ class MultiCarRacing(gym.Env, EzPickle):
 
     def __init__(self, num_agents=2, verbose=1, direction='CCW',
                  use_random_direction=True, backwards_flag=True, h_ratio=0.25,
-                 use_ego_color=False, grass_penalty=1.0):
+                 use_ego_color=False, grass_penalty=1.0, max_steps=1000):
         EzPickle.__init__(self)
         self.seed()
         self.num_agents = num_agents
@@ -165,6 +165,9 @@ class MultiCarRacing(gym.Env, EzPickle):
 
         self.action_space = spaces.Box( self.action_lb, self.action_ub, dtype=np.float32)  # (steer, gas, brake) x N
         self.observation_space = spaces.Box(low=0, high=255, shape=(STATE_H, STATE_W, 3), dtype=np.uint8)
+
+        self.max_steps = max_steps
+        self.total_steps = 0
 
 
     def seed(self, seed=None):
@@ -481,7 +484,12 @@ class MultiCarRacing(gym.Env, EzPickle):
                                    for polygon in self.road_poly_shapely]).any()
                 self.driving_on_grass[car_id] = on_grass
                 if on_grass:
-                    self.reward[car_id] -= self.grass_penalty
+                    # crash condition
+                    self.reward[car_id] -= 100
+                    done = True
+
+                    # grass penalty
+                    # self.reward[car_id] -= self.grass_penalty
 
                 # Find track angle of closest point
                 desired_angle = self.track[track_index][1]
@@ -506,8 +514,11 @@ class MultiCarRacing(gym.Env, EzPickle):
                 else:
                     self.driving_backward[car_id] = False
 
-            if len(self.track) in self.tile_visited_count:
+            if len(self.track) in self.tile_visited_count or self.total_steps >= self.max_steps:
                 done = True
+                self.total_steps = 0
+            else:
+                self.total_steps += 1
 
             # The car that leaves the field experiences a reward of -100 
             # and the episode is terminated subsequently.
