@@ -514,11 +514,12 @@ class MultiCarRacing(gym.Env, EzPickle):
                 else:
                     self.driving_backward[car_id] = False
 
+            self.total_steps += 1
             if len(self.track) in self.tile_visited_count or self.total_steps >= self.max_steps:
                 done = True
-                self.total_steps = 0
-            else:
-                self.total_steps += 1
+                
+            if done:
+              self.total_steps = 0
 
             # The car that leaves the field experiences a reward of -100 
             # and the episode is terminated subsequently.
