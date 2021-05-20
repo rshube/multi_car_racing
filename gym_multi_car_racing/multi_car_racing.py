@@ -130,7 +130,8 @@ class MultiCarRacing(gym.Env, EzPickle):
 
     def __init__(self, num_agents=2, verbose=1, direction='CCW',
                  use_random_direction=True, backwards_flag=True, h_ratio=0.25,
-                 use_ego_color=False, grass_penalty=1.0, grass_terminal=False, max_steps=1000):
+                 use_ego_color=False, per_ts_penalty=0.1, grass_penalty=1.0, grass_terminal=False, 
+                 max_steps=1000):
         EzPickle.__init__(self)
         self.seed()
         self.num_agents = num_agents
@@ -158,6 +159,7 @@ class MultiCarRacing(gym.Env, EzPickle):
         self.backwards_flag = backwards_flag  # Boolean for rendering backwards driving flag
         self.h_ratio = h_ratio  # Configures vertical location of car within rendered window
         self.use_ego_color = use_ego_color  # Whether to make ego car always render as the same color
+        self.per_ts_penalty = per_ts_penalty # The per-timestep penalty applied to the reward
         self.grass_penalty = grass_penalty # Penalty to apply when on the grass
         self.grass_terminal = grass_terminal # Whether driving onto the grass ends the episode
 
@@ -450,7 +452,7 @@ class MultiCarRacing(gym.Env, EzPickle):
         step_reward = np.zeros(self.num_agents)
         done = False
         if action is not None: # First step without action, called from reset()
-            self.reward -= 0.1
+            self.reward -= self.per_ts_penalty
             # We actually don't want to count fuel spent, we want car to be faster.
             # self.reward -=  10 * self.car.fuel_spent / ENGINE_POWER
 
@@ -534,6 +536,8 @@ class MultiCarRacing(gym.Env, EzPickle):
             for car_id, car in enumerate(self.cars):
                 x, y = car.hull.position
                 if abs(x) > PLAYFIELD or abs(y) > PLAYFIELD:
+                    info['Terminal Cause'] = 'Off the Map'
+                    info['Episode Steps'] = self.total_steps
                     done = True
                     self.reward[car_id] -= 100
 
